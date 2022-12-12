@@ -15,7 +15,8 @@
   "dependencies": {
     "@chrisoakman/chessboardjs": "^1.0.0",
     "cors": "^2.8.5",
-    "jquery": ">=3.4.1"
+    "jquery": ">=3.4.1",
+    "prompt-sync": "^4.2.0"
   },
   "devDependencies": {
     "csso": "3.5.1",

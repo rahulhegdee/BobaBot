@@ -10,49 +10,63 @@ const piece_values = {
 };
 
 //import { Chess } from 'chess.js';
-async function run(newBoard) {
+async function run(newBoard, player) {
     board = newBoard;
     const chess = new Chess();
     // setTimeout(() => {
     //     board.move('e2-e4')
     // }, 2000)
     while (!chess.game_over()) {
-        const moves = chess.moves();
-        let move_scores = [];
-        for(let move of moves) {
-            chess.move(move);
-            move_scores.push({move, scores: basicEval(chess)});
-            chess.undo();
+        if(player === chess.turn()) {
+            let mv = moveSelection(chess, 4); // this is returning infinity or -0 or 2 somehow
+            // move_scores.sort((a, b) => {
+            //     return b.scores - a.scores;
+            // })
+            // let goodMoves = countSameValues(move_scores) + 1;
+            // chess.move(move_scores[Math.floor(Math.random() * goodMoves)].move);
+            console.log(mv);
+            moveParse(mv);
+            chess.move(mv);
+            board.position(chess.fen());
         }
-        move_scores.sort((a, b) => {
-            return b.scores - a.scores;
-        })
-        console.log(move_scores[0].scores);
-        // const move = moves[Math.floor(Math.random() * moves.length)];
-        let goodMoves = countSameValues(move_scores) + 1;
-        chess.move(move_scores[Math.floor(Math.random() * goodMoves)].move);
-        board.position(chess.fen());
+        else{
+            // The Following Allows User Input:
+            // console.log(chess.moves());
+            // const opp_move = prompt("Your move: ");
+            // if(chess.moves().includes(opp_move)){
+            //     chess.move(opp_move);
+            //     board.position(chess.fen());
+            // }
+            // else{
+            //     console.log("Invalid Move!");
+            // }
+            const moves = chess.moves();
+            chess.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(chess.fen());
+        }
         await new Promise((res, rej) => {
             setTimeout(() => {
-                basicEval(chess);
                 res();
-            }, 2000);
+            }, 500);
         });
     }
     console.log(chess.pgn());
 }
 
-function basicEval(chess, count=0, stop=false){
-    if(count < 2){
-        let res = runTwo(chess, count);
-        return -res;
+function basicEval(chess){
+    if(chess.in_draw()) {
+        return 0;
     }
-    let nextTurn = chess.turn();
+    if(chess.game_over()){
+        console.log("yeah");
+        return -100000;
+    }
+    let player = chess.turn();
     let score = 0;
     for(let row of chess.board()) {
         for(let col of row) {
             if(col != null) {
-                if(col.color !== nextTurn){
+                if(col.color === player){
                     score += getValue(col.type); 
                 }
                 else{
@@ -64,22 +78,138 @@ function basicEval(chess, count=0, stop=false){
     return score;
 }
 
-function runTwo(chess, count) { // the issue here is checking the king makes pieces think they get pieces back because only 3 move predictions
-    const moves = chess.moves();
-    let move_scores = [];
-    for(let move of moves) {
-        chess.move(move);
-        move_scores.push({move, scores: basicEval(chess, count+1, true)});
-        chess.undo();
+function moveOrdering(a, b) {
+    let aMove = moveParse(a);
+    let bMove = moveParse(b);
+    let aScore = 0;
+    let bScore = 0;
+    
+    if(aMove.checkmate === true) {
+        aScore += 1000;
     }
-    move_scores.sort((a, b) => {
-        return b.scores - a.scores;
-    })
-    return move_scores[0].scores;
+    if(aMove.check === true) {
+        aScore += 100;
+    }
+    if(aMove.capture === true) {
+        aScore += 10;
+    }
+
+    if(bMove.checkmate === true) {
+        bScore += 1000;
+    }
+    if(bMove.check === true) {
+        bScore += 100;
+    }
+    if(bMove.capture === true) {
+        bScore += 10;
+    }
+
+    return bScore - aScore;
+}
+
+function moveParse(move) {
+    let mv = move;
+    let capture = false;
+    let square = "";
+    let piece = "";
+    let check = false;
+    let checkmate = false;
+    if(mv.charAt(0) === mv.charAt(0).toUpperCase()){
+        piece = mv.charAt(0).toLowerCase();
+        mv = mv.substring(1);
+    }
+    else{
+        piece = "p";
+    }
+    if(mv.includes("x")){
+        capture = true;
+        let findX = mv.indexOf("x");
+        square = mv.substring(findX+1, findX+3);
+    }
+    else{
+        square = mv.substring(0,2);
+    }
+    if(mv.includes("+")){
+        check = true;
+    }
+    if(mv.includes("#")) {
+        checkmate = true;
+    }
+
+    let obj = {
+        capture,
+        square,
+        piece,
+        check,
+        checkmate
+    };
+
+    return obj;
+}
+
+function moveSelection(chess, depth) {
+    let moveSelected = "";
+    let calculated = 0;
+    alphaBetaMax(-Infinity, Infinity, depth, true);
+
+    function alphaBetaMax(alpha, beta, depthLeft, first) {
+        if(calculated > 1000000 || chess.game_over()) {
+            depthLeft = 0;
+        }
+        if (depthLeft === 0) {
+            return basicEval(chess);
+        }
+        const moves = chess.moves();
+        if(first) {
+            moves.sort((a, b) => moveOrdering(a, b));
+            console.log(moves);
+        }
+        for (let move of moves) {
+            calculated += 1;
+            chess.move(move);
+            score = alphaBetaMin(alpha, beta, depthLeft - 1);
+            chess.undo();
+            if(score >= beta) {
+                return beta;
+            }   
+            if(score > alpha) {
+                alpha = score;
+                if(first) {
+                    console.log("THIS:" + move)
+                    moveSelected = move;
+                }
+            }
+        }
+        return alpha;
+    }
+     
+    function alphaBetaMin(alpha, beta, depthLeft) {
+        if(calculated > 1000000 || chess.game_over()) {
+            depthLeft = 0;
+        }
+        if (depthLeft === 0) {
+            return -basicEval(chess);
+        }
+        const moves = chess.moves();
+        for (let move of moves) {
+            calculated += 1;
+            chess.move(move);
+            score = alphaBetaMax(alpha, beta, depthLeft - 1, false);
+            chess.undo();
+            if(score <= alpha) {
+                return alpha;
+            }   
+            if(score < beta) {
+                beta = score;
+            }
+        }
+        return beta;
+    }
+
+    return moveSelected;
 }
 
 function getValue(piece){
-    console.log(piece_values[piece]);
     return piece_values[piece];
 }
 
@@ -96,5 +226,5 @@ function countSameValues(arr){
 
 window.onload = () => {
     let board = Chessboard('board', 'start');
-    run(board);
+    run(board, 'w');
 };
