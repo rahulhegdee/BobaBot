@@ -9,6 +9,8 @@ const piece_values = {
     'k': 1000,
 };
 
+let unmoved = ['p', 'n', 'b', 'r', 'q'];
+
 //import { Chess } from 'chess.js';
 async function run(newBoard, player) {
     board = newBoard;
@@ -24,25 +26,28 @@ async function run(newBoard, player) {
             // })
             // let goodMoves = countSameValues(move_scores) + 1;
             // chess.move(move_scores[Math.floor(Math.random() * goodMoves)].move);
-            console.log(mv);
-            moveParse(mv);
+            let moveInfo = moveParse(mv);
+            if(unmoved.includes(moveInfo.piece)){
+                const index = unmoved.indexOf(moveInfo.piece);
+                unmoved.splice(index, 1);
+            }
             chess.move(mv);
             board.position(chess.fen());
         }
         else{
             // The Following Allows User Input:
-            // console.log(chess.moves());
-            // const opp_move = prompt("Your move: ");
-            // if(chess.moves().includes(opp_move)){
-            //     chess.move(opp_move);
-            //     board.position(chess.fen());
-            // }
-            // else{
-            //     console.log("Invalid Move!");
-            // }
-            const moves = chess.moves();
-            chess.move(moves[Math.floor(Math.random() * moves.length)]);
-            board.position(chess.fen());
+            console.log(chess.moves());
+            const opp_move = prompt("Your move: ");
+            if(chess.moves().includes(opp_move)){
+                chess.move(opp_move);
+                board.position(chess.fen());
+            }
+            else{
+                console.log("Invalid Move!");
+            }
+            // const moves = chess.moves();
+            // chess.move(moves[Math.floor(Math.random() * moves.length)]);
+            // board.position(chess.fen());
         }
         await new Promise((res, rej) => {
             setTimeout(() => {
@@ -58,7 +63,6 @@ function basicEval(chess){
         return 0;
     }
     if(chess.game_over()){
-        console.log("yeah");
         return -100000;
     }
     let player = chess.turn();
@@ -93,6 +97,9 @@ function moveOrdering(a, b) {
     if(aMove.capture === true) {
         aScore += 10;
     }
+    if(unmoved.includes(aMove.piece)) {
+        aScore += 5;
+    }
 
     if(bMove.checkmate === true) {
         bScore += 1000;
@@ -102,6 +109,9 @@ function moveOrdering(a, b) {
     }
     if(bMove.capture === true) {
         bScore += 10;
+    }
+    if(unmoved.includes(bMove.piece)) {
+        bScore += 5;
     }
 
     return bScore - aScore;
@@ -162,7 +172,6 @@ function moveSelection(chess, depth) {
         const moves = chess.moves();
         if(first) {
             moves.sort((a, b) => moveOrdering(a, b));
-            console.log(moves);
         }
         for (let move of moves) {
             calculated += 1;
@@ -175,7 +184,6 @@ function moveSelection(chess, depth) {
             if(score > alpha) {
                 alpha = score;
                 if(first) {
-                    console.log("THIS:" + move)
                     moveSelected = move;
                 }
             }
